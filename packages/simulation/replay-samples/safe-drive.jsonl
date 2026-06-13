@@ -1,0 +1,10 @@
+{"timestamp":"2024-01-15T08:00:00.000Z","lat":46.6632,"lng":16.1663,"speed":0,"accelX":0.1,"accelY":0.05,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":90,"accuracy":5,"drivingState":"STOPPED"}
+{"timestamp":"2024-01-15T08:00:02.000Z","lat":46.6633,"lng":16.1668,"speed":12,"accelX":0.8,"accelY":0.1,"accelZ":9.8,"gyroX":0.02,"gyroY":0.01,"gyroZ":0.02,"heading":92,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:04.000Z","lat":46.6635,"lng":16.1673,"speed":28,"accelX":0.5,"accelY":0.1,"accelZ":9.8,"gyroX":0.02,"gyroY":0.01,"gyroZ":0.01,"heading":91,"accuracy":4,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:06.000Z","lat":46.6637,"lng":16.1678,"speed":42,"accelX":0.3,"accelY":0.08,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":90,"accuracy":4,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:08.000Z","lat":46.6639,"lng":16.1683,"speed":47,"accelX":0.1,"accelY":0.05,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":89,"accuracy":4,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:10.000Z","lat":46.6641,"lng":16.1688,"speed":48,"accelX":0.1,"accelY":0.06,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.02,"heading":90,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:15.000Z","lat":46.6645,"lng":16.1698,"speed":49,"accelX":0.05,"accelY":0.04,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":90,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:20.000Z","lat":46.6649,"lng":16.1708,"speed":47,"accelX":0.1,"accelY":0.05,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":89,"accuracy":4,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:25.000Z","lat":46.6653,"lng":16.1718,"speed":45,"accelX":0.2,"accelY":0.06,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":88,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T08:00:30.000Z","lat":46.6657,"lng":16.1728,"speed":0,"accelX":0.1,"accelY":0.05,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":88,"accuracy":5,"drivingState":"STOPPED"}

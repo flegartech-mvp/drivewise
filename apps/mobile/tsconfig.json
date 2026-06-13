@@ -1,0 +1,12 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@drivewise/shared": ["../../packages/shared/src"],
+      "@drivewise/sensors": ["../../packages/sensors/src"],
+      "@drivewise/simulation": ["../../packages/simulation/src"],
+      "@drivewise/scoring": ["../../packages/scoring/src"]
+    }
+  }
+}

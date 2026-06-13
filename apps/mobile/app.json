@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "DriveWise",
+    "slug": "drivewise",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "drivewise",
+    "platforms": ["ios", "android"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#0f1117"
+    },
+    "ios": {
+      "bundleIdentifier": "si.drivewise.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "DriveWise potrebuje lokacijo za sledenje vožnji.",
+        "NSLocationWhenInUseUsageDescription": "DriveWise potrebuje lokacijo za sledenje vožnji.",
+        "NSMotionUsageDescription": "DriveWise uporablja senzorje gibanja za analizo vožnje.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
+    },
+    "android": {
+      "package": "si.drivewise.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACTIVITY_RECOGNITION",
+        "FOREGROUND_SERVICE",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "DriveWise potrebuje lokacijo za sledenje vožnji." }],
+      "expo-sensors"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

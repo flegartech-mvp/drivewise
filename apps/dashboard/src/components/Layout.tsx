@@ -1,0 +1,70 @@
+import React from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/auth.store';
+import clsx from 'clsx';
+
+const navItems = [
+  { to: '/',             label: 'Pregled',          icon: '◈' },
+  { to: '/users',        label: 'Uporabniki',       icon: '👤' },
+  { to: '/trips',        label: 'Vožnje',           icon: '🚗' },
+  { to: '/report',       label: 'Poročilo',         icon: '📊' },
+  { to: '/risk-map',     label: 'Tvegana karta',    icon: '🗺' },
+  { to: '/traffic',      label: 'Promet',           icon: '🚦' },
+  { to: '/roads',        label: 'Cestni podatki',   icon: '🛣' },
+  { to: '/data-sources', label: 'Podatkovni viri',  icon: '📡' },
+  { to: '/simulation',   label: 'Simulacija',       icon: '🎮' },
+];
+
+export default function Layout() {
+  const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-56 shrink-0 bg-surface-800 border-r border-surface-600 flex flex-col">
+        <div className="px-5 py-4 border-b border-surface-600">
+          <span className="text-brand-400 font-bold text-lg tracking-tight">DriveWise</span>
+          <div className="text-surface-400 text-xs mt-0.5">Admin Dashboard</div>
+        </div>
+        <nav className="flex-1 py-3 overflow-y-auto">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-2.5 px-5 py-2.5 text-sm transition-colors',
+                  isActive
+                    ? 'bg-surface-700 text-brand-400 font-medium'
+                    : 'text-surface-300 hover:text-white hover:bg-surface-700',
+                )
+              }
+            >
+              <span className="text-base leading-none w-5 text-center">{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="px-5 py-4 border-t border-surface-600 text-xs text-surface-400">
+          <div className="mb-2 truncate">{user?.email}</div>
+          <button type="button" onClick={handleLogout} className="text-surface-400 hover:text-white transition-colors">
+            Odjava
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main className="flex-1 overflow-y-auto bg-surface-900">
+        <Outlet />
+      </main>
+    </div>
+  );
+}

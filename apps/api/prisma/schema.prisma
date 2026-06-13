@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("DRIVER")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  vehicles     Vehicle[]
+  trips        Trip[]
+  rewards      Reward[]
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plateNumber String?
+  vehicleType String   @default("CAR")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  trips       Trip[]
+}
+
+model Trip {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId       String?
+  vehicle         Vehicle? @relation(fields: [vehicleId], references: [id])
+  startedAt       DateTime
+  endedAt         DateTime?
+  distanceKm      Float    @default(0)
+  durationSeconds Int      @default(0)
+  averageSpeedKmh Float    @default(0)
+  maxSpeedKmh     Float    @default(0)
+  score           Int?
+  status          String   @default("ACTIVE")
+  mode            String   @default("REAL_DEVICE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  points          TripPoint[]
+  sensorSamples   SensorSample[]
+  events          DrivingEvent[]
+}
+
+model TripPoint {
+  id                   String   @id @default(cuid())
+  tripId               String
+  trip                 Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  latitude             Float
+  longitude            Float
+  gpsSpeedKmh          Float?
+  altitude             Float?
+  heading              Float?
+  accuracy             Float?
+  timestamp            DateTime
+  matchedRoadSegmentId String?
+  speedLimitKmh        Float?
+  speedLimitSource     String?
+  speedLimitConfidence String?
+
+  @@index([tripId])
+  @@index([timestamp])
+}
+
+model SensorSample {
+  id                                String   @id @default(cuid())
+  tripId                            String
+  trip                              Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  timestamp                         DateTime
+  latitude                          Float?
+  longitude                         Float?
+  gpsSpeedKmh                       Float?
+  gpsAccuracy                       Float?
+  altitude                          Float?
+  heading                           Float?
+  accelX                            Float?
+  accelY                            Float?
+  accelZ                            Float?
+  accelMagnitude                    Float?
+  gyroX                             Float?
+  gyroY                             Float?
+  gyroZ                             Float?
+  gyroMagnitude                     Float?
+  rotationAlpha                     Float?
+  rotationBeta                      Float?
+  rotationGamma                     Float?
+  userAccelerationX                 Float?
+  userAccelerationY                 Float?
+  userAccelerationZ                 Float?
+  magneticX                         Float?
+  magneticY                         Float?
+  magneticZ                         Float?
+  pressure                          Float?
+  relativeAltitude                  Float?
+  estimatedVehicleAcceleration      Float?
+  estimatedLongitudinalAcceleration Float?
+  estimatedLateralAcceleration      Float?
+  detectedPhoneHandling             Boolean  @default(false)
+  detectedDrivingState              String?
+  rawPayload                        String?
+
+  @@index([tripId])
+  @@index([timestamp])
+}
+
+model DrivingEvent {
+  id        String   @id @default(cuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  type      String
+  severity  String
+  latitude  Float?
+  longitude Float?
+  value     Float?
+  timestamp DateTime
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([tripId])
+  @@index([type])
+  @@index([timestamp])
+}
+
+model Reward {
+  id                       String   @id @default(cuid())
+  userId                   String
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month                    String
+  score                    Int
+  distanceKm               Float
+  tier                     String   @default("NONE")
+  simulatedDiscountPercent Float    @default(0)
+  createdAt                DateTime @default(now())
+
+  @@unique([userId, month])
+}
+
+model RoadSegment {
+  id          String   @id @default(cuid())
+  source      String   @default("OSM")
+  osmId       String   @unique
+  name        String?
+  roadType    String?
+  geometry    String
+  maxSpeedKmh Float?
+  city        String?
+  country     String   @default("SI")
+  rawTags     String   @default("{}")
+  importedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([roadType])
+}
+
+model TrafficEvent {
+  id          String    @id @default(cuid())
+  source      String
+  externalId  String?
+  type        String
+  title       String
+  description String?
+  severity    String?
+  latitude    Float?
+  longitude   Float?
+  roadName    String?
+  validFrom   DateTime?
+  validTo     DateTime?
+  rawPayload  String    @default("{}")
+  importedAt  DateTime  @default(now())
+
+  @@index([type])
+  @@index([importedAt])
+}
+
+model WeatherSnapshot {
+  id          String   @id @default(cuid())
+  source      String
+  latitude    Float
+  longitude   Float
+  temperature Float?
+  rain        Float?
+  snow        Float?
+  fog         Float?
+  windSpeed   Float?
+  visibility  Float?
+  condition   String?
+  timestamp   DateTime
+  rawPayload  String   @default("{}")
+
+  @@index([timestamp])
+}
+
+model DataImportLog {
+  id              String    @id @default(cuid())
+  provider        String
+  status          String
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  recordsImported Int       @default(0)
+  errorMessage    String?
+
+  @@index([provider])
+  @@index([startedAt])
+}
+
+model ApiProviderStatus {
+  provider      String    @id
+  lastSuccessAt DateTime?
+  lastFailureAt DateTime?
+  status        String    @default("UNKNOWN")
+  message       String?
+  updatedAt     DateTime  @updatedAt
+}

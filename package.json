@@ -1,0 +1,29 @@
+{
+  "name": "drivewise",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:dashboard\"",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:dashboard": "npm run dev --workspace=apps/dashboard",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "build": "npm run prisma:generate && npm run build --workspace=packages/shared && npm run build --workspaces --if-present",
+    "prisma:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:seed": "npm run db:seed --workspace=apps/api",
+    "import:osm": "npm run import:osm --workspace=apps/api",
+    "import:traffic": "npm run import:traffic --workspace=apps/api",
+    "import:demo": "npm run import:demo --workspace=apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}

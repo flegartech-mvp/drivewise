@@ -1,0 +1,7 @@
+{"timestamp":"2024-01-15T11:00:00.000Z","lat":46.0569,"lng":14.5058,"speed":35,"accelX":0.2,"accelY":0.1,"accelZ":9.8,"gyroX":0.02,"gyroY":0.01,"gyroZ":0.02,"heading":180,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T11:00:05.000Z","lat":46.0572,"lng":14.5060,"speed":38,"accelX":0.1,"accelY":0.08,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":179,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T11:00:10.000Z","lat":46.0575,"lng":14.5062,"speed":40,"accelX":4.2,"accelY":3.5,"accelZ":9.8,"gyroX":2.1,"gyroY":1.8,"gyroZ":0.5,"heading":178,"accuracy":8,"drivingState":"DRIVING","phoneHandling":true}
+{"timestamp":"2024-01-15T11:00:11.000Z","lat":46.0576,"lng":14.5063,"speed":39,"accelX":3.8,"accelY":3.1,"accelZ":9.8,"gyroX":1.9,"gyroY":1.5,"gyroZ":0.4,"heading":178,"accuracy":8,"drivingState":"DRIVING","phoneHandling":true}
+{"timestamp":"2024-01-15T11:00:12.000Z","lat":46.0577,"lng":14.5064,"speed":38,"accelX":1.0,"accelY":0.5,"accelZ":9.8,"gyroX":0.3,"gyroY":0.2,"gyroZ":0.1,"heading":179,"accuracy":6,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T11:00:15.000Z","lat":46.0580,"lng":14.5066,"speed":36,"accelX":0.2,"accelY":0.1,"accelZ":9.8,"gyroX":0.02,"gyroY":0.01,"gyroZ":0.01,"heading":180,"accuracy":5,"drivingState":"DRIVING"}
+{"timestamp":"2024-01-15T11:00:20.000Z","lat":46.0584,"lng":14.5068,"speed":38,"accelX":0.1,"accelY":0.08,"accelZ":9.8,"gyroX":0.01,"gyroY":0.01,"gyroZ":0.01,"heading":181,"accuracy":5,"drivingState":"DRIVING"}
