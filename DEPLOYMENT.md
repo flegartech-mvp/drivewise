@@ -19,8 +19,8 @@ The Prisma schema ships with **`provider = "sqlite"`** (zero-setup local dev; ve
 There are **no migrations yet** (dev uses `prisma db push`). To go to Postgres in production:
 1. In `apps/api/prisma/schema.prisma` set `datasource db { provider = "postgresql" }`.
 2. Set `DATABASE_URL=postgresql://drivewise:...@host:5432/drivewise`.
-3. Create the first migration once: `npm run db:migrate --workspace=apps/api` (i.e. `prisma migrate dev --name init`). Commit `apps/api/prisma/migrations/`.
-4. In production run **`npx prisma migrate deploy`** (never `migrate dev` / `db push` in prod).
+3. Create the first migration once **against a local/disposable development PostgreSQL** (never a production DB): `npm run db:migrate --workspace=apps/api` (i.e. `prisma migrate dev --name init`). Commit `apps/api/prisma/migrations/`.
+4. In production run **`npx prisma migrate deploy`** only — never `migrate dev` / `db push` against production.
 
 > Prisma `binaryTargets` already include `debian-openssl-3.0.x` and `-1.1.x` so the engine resolves in Docker/PaaS images.
 
