@@ -1,5 +1,8 @@
 generator client {
   provider = "prisma-client-js"
+  // "native" covers local dev; the debian targets cover Docker / most PaaS
+  // runtimes (Debian 12 = openssl-3.0.x, Debian 11 = openssl-1.1.x).
+  binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
 }
 
 datasource db {

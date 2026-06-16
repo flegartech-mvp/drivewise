@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/.next
+**/.expo
+**/coverage
+**/*.log
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+apps/mobile
+**/dev.db
+**/*.md

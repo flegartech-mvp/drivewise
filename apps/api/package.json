@@ -2,8 +2,8 @@
   "name": "@drivewise/api",
   "version": "1.0.0",
   "scripts": {
-    "build": "nest build --webpack false",
-    "dev": "nest start --watch --webpack false",
+    "build": "nest build",
+    "dev": "nest start --watch",
     "start": "node dist/main",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",

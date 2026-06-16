@@ -13,3 +13,6 @@ coverage/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# TS incremental build state
+*.tsbuildinfo
