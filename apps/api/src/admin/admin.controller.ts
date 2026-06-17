@@ -37,7 +37,8 @@ function detectFraud(trip: {
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly prisma: PrismaService) {}

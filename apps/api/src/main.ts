@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
+import { ZodExceptionFilter } from './common/zod-exception.filter';
 
 async function bootstrap() {
   // Fail fast in production on a missing/placeholder JWT secret.
@@ -36,6 +37,9 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ZodValidationPipe());
+  // Map uncaught ZodErrors from controller-level `Schema.parse(body)` calls to
+  // 400 Bad Request instead of 500.
+  app.useGlobalFilters(new ZodExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle('DriveWise API')
