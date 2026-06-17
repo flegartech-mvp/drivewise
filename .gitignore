@@ -16,3 +16,24 @@ coverage/
 
 # TS incremental build state
 *.tsbuildinfo
+
+# --- repo cleanup hygiene (added) ---
+build/
+out/
+.next/
+.turbo/
+.vite/
+.cache/
+test-results/
+playwright-report/
+output/
+tmp/
+*.log
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*.orig
+.env.local
+.env.*.local
+promo/
