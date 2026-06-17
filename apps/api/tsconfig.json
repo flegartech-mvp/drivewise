@@ -12,7 +12,6 @@
     "rootDir": "./src",
     "strict": true,
     "skipLibCheck": true,
-    "incremental": true,
     "esModuleInterop": true
   }
 }
