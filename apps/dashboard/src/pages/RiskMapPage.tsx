@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import { adminApi } from '../api/client';
 import { SectionHeader, LoadingState, ErrorState, EventBadge } from '../components/ui';
 import 'leaflet/dist/leaflet.css';
@@ -16,6 +16,17 @@ const severityColor: Record<string, string> = {
   MEDIUM: '#f97316',
   LOW: '#eab308',
 };
+
+function FitRiskPoints({ points }: { points: HeatPoint[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (points.length === 0) return;
+    map.fitBounds(points.map((pt) => [pt.lat, pt.lng]), { padding: [32, 32], maxZoom: 13 });
+  }, [map, points]);
+
+  return null;
+}
 
 export default function RiskMapPage() {
   const [points, setPoints] = useState<HeatPoint[]>([]);
@@ -64,6 +75,7 @@ export default function RiskMapPage() {
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               attribution='&copy; <a href="https://carto.com/">CARTO</a> | OSM'
             />
+            <FitRiskPoints points={filtered} />
             {filtered.map((pt, i) => (
               <CircleMarker
                 key={i}

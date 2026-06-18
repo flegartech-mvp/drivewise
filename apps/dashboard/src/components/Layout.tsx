@@ -26,14 +26,14 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen flex-col overflow-hidden md:h-screen md:flex-row">
       {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-surface-800 border-r border-surface-600 flex flex-col">
+      <aside className="w-full shrink-0 bg-surface-800 border-b border-surface-600 md:w-56 md:border-b-0 md:border-r flex flex-col">
         <div className="px-5 py-4 border-b border-surface-600">
           <span className="text-brand-400 font-bold text-lg tracking-tight">DriveWise</span>
           <div className="text-surface-400 text-xs mt-0.5">Admin Dashboard</div>
         </div>
-        <nav className="flex-1 py-3 overflow-y-auto">
+        <nav className="flex gap-1 overflow-x-auto px-3 py-3 md:flex-1 md:flex-col md:gap-0 md:overflow-y-auto md:px-0">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -41,7 +41,7 @@ export default function Layout() {
               end={item.to === '/'}
               className={({ isActive }) =>
                 clsx(
-                  'flex items-center gap-2.5 px-5 py-2.5 text-sm transition-colors',
+                  'flex shrink-0 items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm transition-colors md:rounded-none md:px-5',
                   isActive
                     ? 'bg-surface-700 text-brand-400 font-medium'
                     : 'text-surface-300 hover:text-white hover:bg-surface-700',
@@ -53,7 +53,7 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="px-5 py-4 border-t border-surface-600 text-xs text-surface-400">
+        <div className="hidden px-5 py-4 border-t border-surface-600 text-xs text-surface-400 md:block">
           <div className="mb-2 truncate">{user?.email}</div>
           <button type="button" onClick={handleLogout} className="text-surface-400 hover:text-white transition-colors">
             Odjava
