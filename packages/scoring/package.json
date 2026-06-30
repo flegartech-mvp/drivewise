@@ -22,6 +22,9 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": ["**/src/**/*.test.ts"],
-    "testPathIgnorePatterns": ["/node_modules/", "/dist/"]
+    "testPathIgnorePatterns": ["/node_modules/", "/dist/"],
+    "moduleNameMapper": {
+      "^@drivewise/shared$": "<rootDir>/../shared/src"
+    }
   }
 }

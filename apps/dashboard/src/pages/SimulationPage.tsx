@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { simulationApi } from '../api/client';
-import { SectionHeader, LoadingState, ErrorState, ScoreRing, Badge } from '../components/ui';
+import { SectionHeader, ErrorState, ScoreRing, Badge } from '../components/ui';
 
 interface Scenario {
   id: string;

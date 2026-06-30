@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scores/scoring.service';
 import { SpeedLimitService } from '../ingestion/speed-limit.service';
@@ -79,7 +80,7 @@ export class TripsService {
 
     // Run event detection on uploaded samples
     let prev: SensorSample | null = null;
-    const newEvents: object[] = [];
+    const newEvents: Prisma.DrivingEventCreateManyInput[] = [];
 
     for (const s of sampleRows) {
       const enriched = enrichSample(s as SensorSample, prev);
@@ -91,7 +92,7 @@ export class TripsService {
         enriched,
         prev,
         sl?.speedLimitKmh ?? undefined,
-        sl?.confidence as any ?? undefined,
+        sl?.confidence ?? undefined,
       );
 
       for (const ev of detected) {
@@ -110,7 +111,7 @@ export class TripsService {
     }
 
     if (newEvents.length > 0) {
-      await this.prisma.drivingEvent.createMany({ data: newEvents as any });
+      await this.prisma.drivingEvent.createMany({ data: newEvents });
     }
 
     return { inserted: sampleRows.length, eventsDetected: newEvents.length };
@@ -152,8 +153,8 @@ export class TripsService {
       await this.prisma.drivingEvent.create({
         data: {
           tripId,
-          type: 'NIGHT_DRIVING' as any,
-          severity: 'LOW' as any,
+          type: 'NIGHT_DRIVING',
+          severity: 'LOW',
           timestamp: trip.startedAt,
           metadata: JSON.stringify({ note: 'Trip started during night hours' }),
         },
@@ -189,30 +190,33 @@ export class TripsService {
     });
   }
 
-  async findOne(userId: string, tripId: string) {
+  async findOne(userId: string, role: string, tripId: string) {
     const trip = await this.prisma.trip.findFirst({
-      where: { id: tripId, userId },
+      where: this.tripAccessWhere(userId, role, tripId),
       include: { vehicle: true, _count: { select: { events: true, points: true } } },
     });
     if (!trip) throw new NotFoundException('Trip not found');
     return trip;
   }
 
-  findPoints(tripId: string) {
+  async findPoints(userId: string, role: string, tripId: string) {
+    await this.requireTripAccess(userId, role, tripId);
     return this.prisma.tripPoint.findMany({
       where: { tripId },
       orderBy: { timestamp: 'asc' },
     });
   }
 
-  findEvents(tripId: string) {
+  async findEvents(userId: string, role: string, tripId: string) {
+    await this.requireTripAccess(userId, role, tripId);
     return this.prisma.drivingEvent.findMany({
       where: { tripId },
       orderBy: { timestamp: 'asc' },
     });
   }
 
-  findSensorSamples(tripId: string) {
+  async findSensorSamples(userId: string, role: string, tripId: string) {
+    await this.requireTripAccess(userId, role, tripId);
     return this.prisma.sensorSample.findMany({
       where: { tripId },
       orderBy: { timestamp: 'asc' },
@@ -220,12 +224,12 @@ export class TripsService {
     });
   }
 
-  async getScoreBreakdown(userId: string, tripId: string) {
+  async getScoreBreakdown(userId: string, role: string, tripId: string) {
     const trip = await this.prisma.trip.findFirst({
-      where: { id: tripId, userId },
+      where: this.tripAccessWhere(userId, role, tripId),
       include: { events: { orderBy: { timestamp: 'asc' } } },
     });
-    if (!trip) throw new (await import('@nestjs/common')).NotFoundException('Trip not found');
+    if (!trip) throw new NotFoundException('Trip not found');
     if (!trip.endedAt || trip.score === null) {
       return { tripId, message: 'Trip not yet completed', score: null };
     }
@@ -253,5 +257,17 @@ export class TripsService {
       throw new BadRequestException('Trip is not active');
     }
     return trip;
+  }
+
+  private tripAccessWhere(userId: string, role: string, tripId: string) {
+    return role === 'ADMIN' ? { id: tripId } : { id: tripId, userId };
+  }
+
+  private async requireTripAccess(userId: string, role: string, tripId: string) {
+    const trip = await this.prisma.trip.findFirst({
+      where: this.tripAccessWhere(userId, role, tripId),
+      select: { id: true },
+    });
+    if (!trip) throw new NotFoundException('Trip not found');
   }
 }

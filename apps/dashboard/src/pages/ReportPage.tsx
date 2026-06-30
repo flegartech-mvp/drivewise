@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { scoresApi } from '../api/client';
-import { SectionHeader, LoadingState, ErrorState, StatCard, Badge } from '../components/ui';
+import { SectionHeader, LoadingState, ErrorState, StatCard } from '../components/ui';
 
 interface WeeklyReport {
   period: string;

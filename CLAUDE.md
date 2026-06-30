@@ -4,10 +4,10 @@
 DriveWise is a fullstack product application.
 
 ## Stack
-- Frontend: (fill in — e.g. Next.js / React)
-- Backend: (fill in — e.g. Node.js / Express / FastAPI)
-- Database: PostgreSQL (via Prisma or raw SQL)
-- Package manager: pnpm
+- Frontend: React 18 + Vite dashboard, Expo React Native mobile app
+- Backend: NestJS 10 REST API
+- Database: PostgreSQL via Prisma
+- Package manager: npm workspaces (`package-lock.json`)
 
 ## Key conventions
 - Use TypeScript everywhere

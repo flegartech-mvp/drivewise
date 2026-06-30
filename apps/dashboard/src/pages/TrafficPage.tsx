@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ingestionApi } from '../api/client';
-import { SectionHeader, LoadingState, ErrorState, Badge } from '../components/ui';
+import { SectionHeader, LoadingState, Badge } from '../components/ui';
 import { format } from 'date-fns';
 
 interface TrafficEvent {

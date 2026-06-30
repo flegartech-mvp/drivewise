@@ -12,6 +12,15 @@
     "rootDir": "./src",
     "strict": true,
     "skipLibCheck": true,
-    "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@drivewise/shared": ["packages/shared/dist"],
+      "@drivewise/scoring": ["packages/scoring/dist"],
+      "@drivewise/sensors": ["packages/sensors/dist"],
+      "@drivewise/simulation": ["packages/simulation/dist"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "test"]
 }

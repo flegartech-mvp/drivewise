@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { SimulationService } from './simulation.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { ScenarioId } from '@drivewise/simulation';
 import { z } from 'zod';
 
 const GenerateTripSchema = z.object({
@@ -25,6 +26,6 @@ export class SimulationController {
   @Post('trips/generate')
   generate(@Request() req: ReqUser, @Body() body: unknown) {
     const { scenarioId } = GenerateTripSchema.parse(body);
-    return this.svc.generateDemoTrip(req.user.userId, scenarioId as any);
+    return this.svc.generateDemoTrip(req.user.userId, scenarioId as ScenarioId);
   }
 }

@@ -6,7 +6,7 @@ import { TripsService } from './trips.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StartTripSchema, BatchTripPointsSchema, BatchSensorSamplesSchema } from '@drivewise/shared';
 
-type ReqUser = { user: { userId: string } };
+type ReqUser = { user: { userId: string; role: string } };
 
 @ApiTags('trips')
 @ApiBearerAuth()
@@ -42,26 +42,26 @@ export class TripsController {
 
   @Get(':id')
   findOne(@Request() req: ReqUser, @Param('id') id: string) {
-    return this.svc.findOne(req.user.userId, id);
+    return this.svc.findOne(req.user.userId, req.user.role, id);
   }
 
   @Get(':id/points')
-  points(@Param('id') id: string) {
-    return this.svc.findPoints(id);
+  points(@Request() req: ReqUser, @Param('id') id: string) {
+    return this.svc.findPoints(req.user.userId, req.user.role, id);
   }
 
   @Get(':id/events')
-  events(@Param('id') id: string) {
-    return this.svc.findEvents(id);
+  events(@Request() req: ReqUser, @Param('id') id: string) {
+    return this.svc.findEvents(req.user.userId, req.user.role, id);
   }
 
   @Get(':id/sensor-samples')
-  samples(@Param('id') id: string) {
-    return this.svc.findSensorSamples(id);
+  samples(@Request() req: ReqUser, @Param('id') id: string) {
+    return this.svc.findSensorSamples(req.user.userId, req.user.role, id);
   }
 
   @Get(':id/score-breakdown')
   scoreBreakdown(@Request() req: ReqUser, @Param('id') id: string) {
-    return this.svc.getScoreBreakdown(req.user.userId, id);
+    return this.svc.getScoreBreakdown(req.user.userId, req.user.role, id);
   }
 }

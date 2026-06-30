@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { generateTrip } from '@drivewise/simulation';
+import { generateTrip, type ScenarioId } from '@drivewise/simulation';
 import { calculateScore } from '@drivewise/scoring';
 import { EventDetector, enrichSample } from '@drivewise/sensors';
 import { DrivingEventType, EventSeverity } from '@drivewise/shared';
@@ -16,7 +16,7 @@ const DEMO_SCENARIOS: Array<{ scenarioId: string; label: string }> = [
 ];
 
 async function generateDemoTrip(userId: string, scenarioId: string) {
-  const generated = generateTrip({ scenarioId: scenarioId as any, addNoise: true });
+  const generated = generateTrip({ scenarioId: scenarioId as ScenarioId, addNoise: true });
 
   const trip = await prisma.trip.create({
     data: {
@@ -51,7 +51,7 @@ async function generateDemoTrip(userId: string, scenarioId: string) {
   }
 
   const detector = new EventDetector();
-  const events: object[] = [];
+  const events: Prisma.DrivingEventCreateManyInput[] = [];
   let prev = null;
   let maxSpeed = 0;
   let speedSum = 0;
@@ -82,7 +82,7 @@ async function generateDemoTrip(userId: string, scenarioId: string) {
 
   if (events.length > 0) {
     for (let i = 0; i < events.length; i += 100) {
-      await prisma.drivingEvent.createMany({ data: events.slice(i, i + 100) as any });
+      await prisma.drivingEvent.createMany({ data: events.slice(i, i + 100) });
     }
   }
 
@@ -122,7 +122,7 @@ async function main() {
   const adminHash = await bcrypt.hash('admin1234', 12);
   const driverHash = await bcrypt.hash('driver1234', 12);
 
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'admin@drivewise.si' },
     update: {},
     create: {

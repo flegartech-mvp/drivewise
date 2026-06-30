@@ -17,10 +17,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email, password) => {
     set({ isLoading: true });
-    const res = await authApi.login(email, password);
-    const token = res.data.accessToken;
-    localStorage.setItem('dw_token', token);
-    set({ token, isLoading: false });
+    try {
+      const res = await authApi.login(email, password);
+      const token = res.data.accessToken;
+      localStorage.setItem('dw_token', token);
+      set({ token });
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   logout: () => {

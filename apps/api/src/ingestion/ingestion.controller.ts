@@ -50,7 +50,7 @@ export class IngestionController {
   }
 
   @Get('road-segments/nearby')
-  getNearby(@Query('lat') lat: string, @Query('lng') lng: string) {
+  getNearby(@Query('lat') _lat: string, @Query('lng') _lng: string) {
     return this.prisma.roadSegment.findMany({ take: 20 });
   }
 

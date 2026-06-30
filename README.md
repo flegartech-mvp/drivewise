@@ -109,7 +109,7 @@ npm install
 ### 2. Environment
 ```bash
 cp .env.example .env
-# Edit .env — at minimum set JWT_SECRET
+# Edit .env — set JWT_SECRET and, if needed, database/API provider settings
 ```
 
 ### 3. Database
@@ -117,7 +117,7 @@ cp .env.example .env
 docker compose up -d
 cd apps/api
 cp ../../.env.example .env   # or create apps/api/.env
-npx prisma migrate dev --name init
+npx prisma migrate deploy
 npm run db:seed
 ```
 

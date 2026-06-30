@@ -3,6 +3,10 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /repo
 
+# Prisma detects OpenSSL during client generation in the build stage.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+ && rm -rf /var/lib/apt/lists/*
+
 # Manifests first (better layer caching). Only the API's workspaces — the
 # Expo mobile app and dashboard are not needed for the API image.
 COPY package.json package-lock.json ./

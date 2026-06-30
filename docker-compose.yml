@@ -1,7 +1,7 @@
 # Infrastructure for DriveWise (PostgreSQL + Redis).
 # The API and dashboard run on the host (npm run dev) or as separately
-# deployed services. To run the API against this Postgres, switch the Prisma
-# provider to "postgresql" and set DATABASE_URL accordingly (see DEPLOYMENT.md).
+# deployed services. Point DATABASE_URL at this Postgres service or host port
+# as needed (see DEPLOYMENT.md).
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drivewise_secret}
       POSTGRES_DB: ${POSTGRES_DB:-drivewise}
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,7 +26,7 @@ services:
     container_name: drivewise_redis
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     healthcheck:

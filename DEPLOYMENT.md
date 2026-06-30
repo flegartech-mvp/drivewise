@@ -13,14 +13,13 @@ Monorepo (npm workspaces):
 - API runtime: `node apps/api/dist/main` → `/health` 200, `POST /api/auth/login` (seeded admin) returns JWT, bad login / no-token → 401 ✅
 - `docker build -f apps/api/Dockerfile .` ✅ ; `docker compose up` (postgres+redis healthchecks) ✅
 
-## Database: SQLite (default) vs PostgreSQL (production)
-The Prisma schema ships with **`provider = "sqlite"`** (zero-setup local dev; verified). `docker-compose.yml` provisions **PostgreSQL 16 + Redis 7** for production-like use.
+## Database: PostgreSQL
+The Prisma schema uses **`provider = "postgresql"`** and ships with an initial migration in `apps/api/prisma/migrations`. `docker-compose.yml` provisions **PostgreSQL 16 + Redis 7** for production-like local use.
 
-There are **no migrations yet** (dev uses `prisma db push`). To go to Postgres in production:
-1. In `apps/api/prisma/schema.prisma` set `datasource db { provider = "postgresql" }`.
-2. Set `DATABASE_URL=postgresql://drivewise:...@host:5432/drivewise`.
-3. Create the first migration once **against a local/disposable development PostgreSQL** (never a production DB): `npm run db:migrate --workspace=apps/api` (i.e. `prisma migrate dev --name init`). Commit `apps/api/prisma/migrations/`.
-4. In production run **`npx prisma migrate deploy`** only — never `migrate dev` / `db push` against production.
+For production:
+1. Set `DATABASE_URL=postgresql://drivewise:...@host:5432/drivewise`.
+2. Run **`npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma`** only — never `migrate dev` / `db push` against production.
+3. Run seed scripts only in controlled demo/staging environments; demo accounts use public sample credentials.
 
 > Prisma `binaryTargets` already include `debian-openssl-3.0.x` and `-1.1.x` so the engine resolves in Docker/PaaS images.
 
@@ -31,7 +30,7 @@ There are **no migrations yet** (dev uses `prisma db push`). To go to Postgres i
 | `npm run prisma:generate` | Generate Prisma Client |
 | `npm run build` | Build packages + api + dashboard |
 | `node apps/api/dist/main` | Start API (binds `PORT`, default 3000; health `/health`) |
-| `npm run db:seed --workspace=apps/api` | Seed demo data |
+| `npm run db:seed --workspace=apps/api` | Seed demo data; do not run against production user data |
 
 > ⚠️ The build script previously ran `nest build --webpack false`, which actually **enabled** webpack bundling and broke Prisma's query-engine resolution at runtime (`node dist/main` crashed). Fixed to `nest build` (tsc output). Now verified working.
 
@@ -56,7 +55,7 @@ Non-root user, `HEALTHCHECK` on `/health`. For SQLite mount a volume for the db 
 | Mobile (Expo) | EAS Build → App Store / Play Store | n/a |
 
 ## Environment variables (server-only) — see `.env.example`
-`DATABASE_URL`, `JWT_SECRET` (**required, ≥32 chars; prod refuses the `change_me` default**), `PORT`, `NODE_ENV`, `CORS_ORIGIN` (comma list; `*` with warning if unset in prod), `ENABLE_SCHEDULERS`, plus optional ingestion keys (`OVERPASS_API_URL`, `OPENROUTESERVICE_API_KEY`, `OPENWEATHER_API_KEY`, `TRAFFIC_PROVIDER`, `DATEX_API_URL`, `PROMET_API_URL`).
+`DATABASE_URL`, `JWT_SECRET` (**required, ≥32 chars; prod refuses the `change_me` default**), `PORT`, `NODE_ENV`, `CORS_ORIGIN` (comma list), `ENABLE_SCHEDULERS`, plus optional ingestion keys (`OVERPASS_API_URL`, `OPENROUTESERVICE_API_KEY`, `OPENWEATHER_API_KEY`, `TRAFFIC_PROVIDER`, `DATEX_API_URL`, `PROMET_API_URL`).
 
 ## Backup / restore (PostgreSQL)
 ```bash

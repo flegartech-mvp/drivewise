@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
 import { SimulationService } from '../../simulation/simulation.service';
+import type { ScenarioId } from '@drivewise/simulation';
 import { PrismaClient } from '@prisma/client';
-import { SCENARIOS } from '@drivewise/simulation';
 
 async function run() {
   const prismaRaw = new PrismaClient();
@@ -20,7 +20,7 @@ async function run() {
   const demoScenarios = ['safe_city', 'aggressive_driver', 'harsh_braking', 'speeding', 'full_risk'];
   for (const sid of demoScenarios) {
     console.log(`Generating demo trip: ${sid}…`);
-    const result = await svc.generateDemoTrip(driver.id, sid as any);
+    const result = await svc.generateDemoTrip(driver.id, sid as ScenarioId);
     console.log(`  → tripId=${result.tripId} score=${result.score.finalScore} events=${result.eventsDetected}`);
   }
 

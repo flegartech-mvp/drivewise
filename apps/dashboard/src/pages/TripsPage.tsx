@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { adminApi } from '../api/client';
-import { SectionHeader, LoadingState, ErrorState, Badge, ScoreRing } from '../components/ui';
+import { LoadingState, ErrorState, Badge, ScoreRing } from '../components/ui';
 import { format } from 'date-fns';
 import { sl } from 'date-fns/locale';
 

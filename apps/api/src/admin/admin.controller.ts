@@ -2,7 +2,6 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { Reflector } from '@nestjs/core';
 import { SetMetadata } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -96,7 +95,7 @@ export class AdminController {
       take: 200,
     });
     return rows.map((t) => {
-      const fraud = detectFraud(t as any);
+      const fraud = detectFraud(t as Parameters<typeof detectFraud>[0]);
       return { ...t, fraud };
     });
   }

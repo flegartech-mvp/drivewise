@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap } from 'react-leaflet';
-import { tripsApi, adminApi } from '../api/client';
+import { tripsApi } from '../api/client';
 import { SectionHeader, LoadingState, ErrorState, EventBadge, Badge } from '../components/ui';
 import { format } from 'date-fns';
 import 'leaflet/dist/leaflet.css';

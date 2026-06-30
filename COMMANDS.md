@@ -1,24 +1,24 @@
 # Commands
 
 ## Install
-pnpm install
+npm ci
 
 ## Dev
-pnpm dev
+npm run dev
 
 ## Typecheck
-pnpm typecheck
+npm run typecheck
 
 ## Test
-pnpm test
+npm test
 
 ## Build
-pnpm build
+npm run build
 
 ## Database
-pnpm prisma generate
-pnpm prisma migrate dev
-pnpm prisma studio
+npm run prisma:generate
+npm run db:migrate
+npx prisma studio --schema=apps/api/prisma/schema.prisma
 
 ## Docker
 docker compose up -d
